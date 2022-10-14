@@ -108,6 +108,7 @@ class _HomePageState extends State<HomePage> {
       autoFocus: false,
       readOnly: false,
       placeholder: 'Add content',
+      enableSelectionToolbar: isMobile(),
       expands: false,
       padding: EdgeInsets.zero,
       onImagePaste: _onImagePaste,
@@ -347,6 +348,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _readOnly() {
+    Navigator.pop(super.context);
     Navigator.push(
       super.context,
       MaterialPageRoute(

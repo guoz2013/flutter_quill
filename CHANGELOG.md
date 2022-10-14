@@ -1,5 +1,14 @@
+# [6.0.8+1]
+* Fixes null pointer when setting documents.
+
+# [6.0.8]
+* Make QuillController.document mutable.
+
+# [6.0.7]
+* Allow disabling of selection toolbar.
+
 # [6.0.6+1]
-* Revert 6.0.6
+* Revert 6.0.6.
 
 # [6.0.6]
 * Fix wrong custom embed key.
