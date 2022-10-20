@@ -72,7 +72,7 @@ class _ArrowIndicatedButtonListState extends State<ArrowIndicatedButtonList>
 
   Widget _buildLeftArrow() {
     return SizedBox(
-      width: 8,
+      width: _showLeftArrow ? 8 : 0,
       child: Transform.translate(
         // Move the icon a few pixels to center it
         offset: const Offset(-5, 0),
@@ -96,7 +96,7 @@ class _ArrowIndicatedButtonListState extends State<ArrowIndicatedButtonList>
             SliverFillRemaining(
               hasScrollBody: false,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: widget.buttons,
               ),
             )
@@ -108,7 +108,7 @@ class _ArrowIndicatedButtonListState extends State<ArrowIndicatedButtonList>
 
   Widget _buildRightColor() {
     return SizedBox(
-      width: 8,
+      width:_showRightArrow ? 8 : 0,
       child: Transform.translate(
         // Move the icon a few pixels to center it
         offset: const Offset(-5, 0),
