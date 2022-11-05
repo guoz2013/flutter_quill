@@ -1,3 +1,18 @@
+# [6.1.2]
+* Add typing shortcuts.
+
+# [6.1.1]
+* Fix order list numbering.
+
+# [6.1.0]
+* Add keyboard shortcuts for editor actions.
+
+# [6.0.10]
+* Upgrade device info plus to ^7.0.0.
+
+# [6.0.9]
+* Don't throw showAutocorrectionPromptRect not implemented. The function is called with every keystroke as a user is typing.
+
 # [6.0.8+1]
 * Fixes null pointer when setting documents.
 
