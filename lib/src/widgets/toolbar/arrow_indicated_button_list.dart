@@ -44,7 +44,7 @@ class _ArrowIndicatedButtonListState extends State<ArrowIndicatedButtonList>
       children: <Widget>[
         _buildLeftArrow(),
         _buildScrollableList(),
-        _buildRightColor(),
+        // _buildRightColor(),
       ],
     );
   }
