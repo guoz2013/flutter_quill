@@ -173,12 +173,15 @@ class QuillEditor extends StatefulWidget {
       this.onSingleLongTapMoveUpdate,
       this.onSingleLongTapEnd,
       this.embedBuilders,
+      this.unknownEmbedBuilder,
       this.linkActionPickerDelegate = defaultLinkActionPickerDelegate,
       this.customStyleBuilder,
       this.locale,
       this.floatingCursorDisabled = false,
       this.textSelectionControls,
       this.onImagePaste,
+      this.customShortcuts,
+      this.customActions,
       this.onCaretMoved,
       Key? key})
       : super(key: key);
@@ -363,6 +366,7 @@ class QuillEditor extends StatefulWidget {
       onSingleLongTapEnd;
 
   final Iterable<EmbedBuilder>? embedBuilders;
+  final EmbedsBuilder? unknownEmbedBuilder;
   final CustomStyleBuilder? customStyleBuilder;
 
   /// The locale to use for the editor toolbar, defaults to system locale
@@ -398,6 +402,9 @@ class QuillEditor extends StatefulWidget {
 
   /// 光标移动回调事件
   final Function(Offset offset)? onCaretMoved;
+
+  final Map<LogicalKeySet, Intent>? customShortcuts;
+  final Map<Type, Action<Intent>>? customActions;
 
   @override
   QuillEditorState createState() => QuillEditorState();
@@ -498,11 +505,19 @@ class QuillEditorState extends State<QuillEditor>
         node,
         readOnly,
       ) =>
-          _buildCustomBlockEmbed(node, context, controller, readOnly),
+          _buildCustomBlockEmbed(
+        node,
+        context,
+        controller,
+        readOnly,
+        widget.unknownEmbedBuilder,
+      ),
       linkActionPickerDelegate: widget.linkActionPickerDelegate,
       customStyleBuilder: widget.customStyleBuilder,
       floatingCursorDisabled: widget.floatingCursorDisabled,
       onImagePaste: widget.onImagePaste,
+      customShortcuts: widget.customShortcuts,
+      customActions: widget.customActions,
       onCaretMoved: widget.onCaretMoved,
     );
 
@@ -533,18 +548,22 @@ class QuillEditorState extends State<QuillEditor>
     return editor;
   }
 
-  Widget _buildCustomBlockEmbed(Embed node, BuildContext context,
-      QuillController controller, bool readOnly) {
+  Widget _buildCustomBlockEmbed(
+    Embed node,
+    BuildContext context,
+    QuillController controller,
+    bool readOnly,
+    EmbedsBuilder? unknownEmbedBuilder,
+  ) {
     final builders = widget.embedBuilders;
 
+    var _node = node;
+    // Creates correct node for custom embed
+    if (node.value.type == BlockEmbed.customType) {
+      _node = Embed(CustomBlockEmbed.fromJsonString(node.value.data));
+    }
+
     if (builders != null) {
-      var _node = node;
-
-      // Creates correct node for custom embed
-      if (node.value.type == BlockEmbed.customType) {
-        _node = Embed(CustomBlockEmbed.fromJsonString(node.value.data));
-      }
-
       for (final builder in builders) {
         if (builder.key == _node.value.type) {
           return builder.build(context, controller, _node, readOnly);
@@ -552,10 +571,15 @@ class QuillEditorState extends State<QuillEditor>
       }
     }
 
+    if (unknownEmbedBuilder != null) {
+      return unknownEmbedBuilder(context, controller, _node, readOnly);
+    }
+
     throw UnimplementedError(
       'Embeddable type "${node.value.type}" is not supported by supplied '
       'embed builders. You must pass your own builder function to '
-      'embedBuilders property of QuillEditor or QuillField widgets.',
+      'embedBuilders property of QuillEditor or QuillField widgets or '
+      'specify an unknownEmbedBuilder.',
     );
   }
 
@@ -1203,15 +1227,6 @@ class RenderEditor extends RenderEditableContainerBox
     return TextSelection(baseOffset: line.start, extentOffset: line.end);
   }
 
-
-  Offset getOffsetForCaret(TextPosition position) {
-    final child = childAtPosition(position);
-    final childPosition = child.globalToLocalPosition(position);
-    final boxParentData = child.parentData as BoxParentData;
-    final localOffsetForCaret = child.getOffsetForCaret(childPosition);
-    return boxParentData.offset + localOffsetForCaret;
-  }
-
   @override
   void performLayout() {
     assert(() {
@@ -1273,10 +1288,6 @@ class RenderEditor extends RenderEditableContainerBox
         _cursorController.show.value &&
         !_cursorController.style.paintAboveText) {
       _paintFloatingCursor(context, offset);
-    }
-    /// 光标移动事件
-    if (onCaretMoved != null) {
-      onCaretMoved!(getOffsetForCaret(selection.base));
     }
     defaultPaint(context, offset);
     _updateSelectionExtentsVisibility(offset + _paintOffset);

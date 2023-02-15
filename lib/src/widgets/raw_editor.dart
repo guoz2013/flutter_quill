@@ -70,6 +70,8 @@ class RawEditor extends StatefulWidget {
       this.minHeight,
       this.maxContentWidth,
       this.customStyles,
+      this.customShortcuts,
+      this.customActions,
       this.expands = false,
       this.autoFocus = false,
       this.keyboardAppearance = Brightness.light,
@@ -228,6 +230,9 @@ class RawEditor extends StatefulWidget {
   final ScrollPhysics? scrollPhysics;
 
   final Future<String?> Function(Uint8List imageBytes)? onImagePaste;
+
+  final Map<LogicalKeySet, Intent>? customShortcuts;
+  final Map<Type, Action<Intent>>? customActions;
 
   /// Builder function for embeddable objects.
   final EmbedsBuilder embedBuilder;
@@ -435,9 +440,14 @@ class RawEditorState extends EditorState
 
           LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift,
               LogicalKeyboardKey.keyL): const ApplyCheckListIntent(),
+
+          if (widget.customShortcuts != null) ...widget.customShortcuts!,
         },
         child: Actions(
-          actions: _actions,
+          actions: {
+            ..._actions,
+            if (widget.customActions != null) ...widget.customActions!,
+          },
           child: Focus(
             focusNode: widget.focusNode,
             onKey: _onKey,
@@ -1080,8 +1090,14 @@ class RawEditorState extends EditorState
       return;
     }
     if (_hasFocus) {
+      final keyboardAlreadyShown = _keyboardVisible;
       openConnectionIfNeeded();
-      _showCaretOnScreen();
+      if (!keyboardAlreadyShown) {
+        /// delay 500 milliseconds for waiting keyboard show up
+        Future.delayed(const Duration(milliseconds: 500), _showCaretOnScreen);
+      } else {
+        _showCaretOnScreen();
+      }
     } else {
       widget.focusNode.requestFocus();
     }
@@ -1422,6 +1438,24 @@ class RawEditorState extends EditorState
   void removeTextPlaceholder() {
     // this is needed for Scribble (Stylus input) in Apple platforms
     // and this package does not implement this feature
+  }
+
+  @override
+  void didChangeInputControl(
+      TextInputControl? oldControl, TextInputControl? newControl) {
+    // TODO: implement didChangeInputControl
+  }
+
+  @override
+  void performSelector(String selectorName) {
+    final intent = intentForMacOSSelector(selectorName);
+
+    if (intent != null) {
+      final primaryContext = primaryFocus?.context;
+      if (primaryContext != null) {
+        Actions.invoke(primaryContext, intent);
+      }
+    }
   }
 }
 
