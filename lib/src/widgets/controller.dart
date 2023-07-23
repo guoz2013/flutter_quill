@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:tuple/tuple.dart';
 
 import '../models/documents/attribute.dart';
 import '../models/documents/document.dart';
@@ -10,6 +9,9 @@ import '../models/documents/nodes/embeddable.dart';
 import '../models/documents/nodes/leaf.dart';
 import '../models/documents/style.dart';
 import '../models/quill_delta.dart';
+import '../models/structs/doc_change.dart';
+import '../models/structs/image_url.dart';
+import '../models/structs/offset_value.dart';
 import '../utils/delta.dart';
 
 typedef ReplaceTextCallback = bool Function(int index, int len, Object? data);
@@ -37,7 +39,9 @@ class QuillController extends ChangeNotifier {
 
   /// Document managed by this controller.
   Document _document;
+
   Document get document => _document;
+
   set document(doc) {
     _document = doc;
 
@@ -82,12 +86,7 @@ class QuillController extends ChangeNotifier {
   /// removing or listeners to this instance.
   bool _isDisposed = false;
 
-  // item1: Document state before [change].
-  //
-  // item2: Change delta applied to the document.
-  //
-  // item3: The source of this change.
-  Stream<Tuple3<Delta, Delta, ChangeSource>> get changes => document.changes;
+  Stream<DocChange> get changes => document.changes;
 
   TextEditingValue get plainTextEditingValue => TextEditingValue(
         text: document.toPlainText(),
@@ -104,6 +103,14 @@ class QuillController extends ChangeNotifier {
 
   // Increases or decreases the indent of the current selection by 1.
   void indentSelection(bool isIncrease) {
+    if (selection.isCollapsed) {
+      _indentSelectionFormat(isIncrease);
+    } else {
+      _indentSelectionEachLine(isIncrease);
+    }
+  }
+
+  void _indentSelectionFormat(bool isIncrease) {
     final indent = getSelectionStyle().attributes[Attribute.indent.key];
     if (indent == null) {
       if (isIncrease) {
@@ -122,11 +129,43 @@ class QuillController extends ChangeNotifier {
     formatSelection(Attribute.getIndentLevel(indent.value - 1));
   }
 
-  /// Returns all styles for each node within selection
-  List<Tuple2<int, Style>> getAllIndividualSelectionStyles() {
-    final styles = document.collectAllIndividualStyles(
+  void _indentSelectionEachLine(bool isIncrease) {
+    final styles = document.collectAllStylesWithOffset(
+      selection.start,
+      selection.end - selection.start,
+    );
+    for (final style in styles) {
+      final indent = style.value.attributes[Attribute.indent.key];
+      final formatIndex = math.max(style.offset, selection.start);
+      final formatLength = math.min(
+            style.offset + (style.length ?? 0),
+            selection.end,
+          ) -
+          style.offset;
+      Attribute? formatAttribute;
+      if (indent == null) {
+        if (isIncrease) {
+          formatAttribute = Attribute.indentL1;
+        }
+      } else if (indent.value == 1 && !isIncrease) {
+        formatAttribute = Attribute.clone(Attribute.indentL1, null);
+      } else if (isIncrease) {
+        formatAttribute = Attribute.getIndentLevel(indent.value + 1);
+      } else {
+        formatAttribute = Attribute.getIndentLevel(indent.value - 1);
+      }
+      if (formatAttribute != null) {
+        document.format(formatIndex, formatLength, formatAttribute);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Returns all styles and Embed for each node within selection
+  List<OffsetValue> getAllIndividualSelectionStylesAndEmbed() {
+    final stylesAndEmbed = document.collectAllIndividualStyleAndEmbed(
         selection.start, selection.end - selection.start);
-    return styles;
+    return stylesAndEmbed;
   }
 
   /// Returns plain text for each node within selection
@@ -145,9 +184,9 @@ class QuillController extends ChangeNotifier {
   }
 
   void undo() {
-    final tup = document.undo();
-    if (tup.item1) {
-      _handleHistoryChange(tup.item2);
+    final result = document.undo();
+    if (result.changed) {
+      _handleHistoryChange(result.len);
     }
   }
 
@@ -167,9 +206,9 @@ class QuillController extends ChangeNotifier {
   }
 
   void redo() {
-    final tup = document.redo();
-    if (tup.item1) {
-      _handleHistoryChange(tup.item2);
+    final result = document.redo();
+    if (result.changed) {
+      _handleHistoryChange(result.len);
     }
   }
 
@@ -216,14 +255,6 @@ class QuillController extends ChangeNotifier {
           ..retain(data is String ? data.length : 1, toggledStyle.toJson());
         document.compose(retainDelta, ChangeSource.LOCAL);
       }
-    }
-
-    if (_keepStyleOnNewLine) {
-      final style = getSelectionStyle();
-      final notInlineStyle = style.attributes.values.where((s) => !s.isInline);
-      toggledStyle = style.removeAll(notInlineStyle.toSet());
-    } else {
-      toggledStyle = Style();
     }
 
     if (textSelection != null) {
@@ -363,22 +394,27 @@ class QuillController extends ChangeNotifier {
     _selection = selection.copyWith(
         baseOffset: math.min(selection.baseOffset, end),
         extentOffset: math.min(selection.extentOffset, end));
-    toggledStyle = Style();
+    if (_keepStyleOnNewLine) {
+      final style = getSelectionStyle();
+      final notInlineStyle = style.attributes.values.where((s) => !s.isInline);
+      toggledStyle = style.removeAll(notInlineStyle.toSet());
+    } else {
+      toggledStyle = Style();
+    }
     onSelectionChanged?.call(textSelection);
   }
 
   /// Given offset, find its leaf node in document
   Leaf? queryNode(int offset) {
-    return document.querySegmentLeafNode(offset).item2;
+    return document.querySegmentLeafNode(offset).leaf;
   }
 
   /// Clipboard for image url and its corresponding style
-  /// item1 is url and item2 is style string
-  Tuple2<String, String>? _copiedImageUrl;
+  ImageUrl? _copiedImageUrl;
 
-  Tuple2<String, String>? get copiedImageUrl => _copiedImageUrl;
+  ImageUrl? get copiedImageUrl => _copiedImageUrl;
 
-  set copiedImageUrl(Tuple2<String, String>? value) {
+  set copiedImageUrl(ImageUrl? value) {
     _copiedImageUrl = value;
     Clipboard.setData(const ClipboardData(text: ''));
   }

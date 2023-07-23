@@ -24,7 +24,7 @@
 
 FlutterQuill is a rich text editor and a [Quill] component for [Flutter].
 
-This library is a WYSIWYG editor built for the modern mobile platform, with web compatibility under development. Check out our [Youtube Playlist] or [Code Introduction] to take a detailed walkthrough of the code base. You can join our [Slack Group] for discussion.
+This library is a WYSIWYG editor built for the modern Android, iOS, web and desktop platforms. Check out our [Youtube Playlist] or [Code Introduction] to take a detailed walkthrough of the code base. You can join our [Slack Group] for discussion.
 
 Demo App: [BULLET JOURNAL](https://bulletjournal.us/home/index.html)
 
@@ -241,7 +241,7 @@ After that, we need to map this "notes" type into a widget. In that case, I used
 Don't forget to add this method to the `QuillEditor` after that!
 
 ```dart
-class NotesEmbedBuilder implements EmbedBuilder {
+class NotesEmbedBuilder extends EmbedBuilder {
   NotesEmbedBuilder({required this.addEditNote});
 
   Future<void> Function(BuildContext context, {Document? document}) addEditNote;
@@ -255,6 +255,7 @@ class NotesEmbedBuilder implements EmbedBuilder {
     QuillController controller,
     Embed node,
     bool readOnly,
+    bool inline,
   ) {
     final notes = NotesBlockEmbed(node.value.data).document;
 
@@ -319,7 +320,7 @@ Future<void> _addEditNote(BuildContext context, {Document? document}) async {
   final length = controller.selection.extentOffset - index;
 
   if (isEditing) {
-    final offset = getEmbedNode(controller, controller.selection.start).item1;
+    final offset = getEmbedNode(controller, controller.selection.start).offset;
     controller.replaceText(
         offset, 1, block, TextSelection.collapsed(offset: offset));
   } else {
@@ -346,10 +347,11 @@ QuillToolbar(locale: Locale('fr'), ...)
 QuillEditor(locale: Locale('fr'), ...)
 ```
 
-Currently, translations are available for these 26 locales:
+Currently, translations are available for these 28 locales:
 
 * `Locale('en')`
 * `Locale('ar')`
+* `Locale('bn')`
 * `Locale('cs')`
 * `Locale('de')`
 * `Locale('da')`
@@ -367,13 +369,14 @@ Currently, translations are available for these 26 locales:
 * `Locale('pl')`
 * `Locale('vi')`
 * `Locale('id')`
+* `Locale('it')`
 * `Locale('ms')`
 * `Locale('nl')`
 * `Locale('no')`
 * `Locale('fa')`
 * `Locale('hi')`
 * `Locale('sr')`
-* `Locale('jp')`
+* `Locale('ja')`
 
 #### Contributing to translations
 
@@ -388,6 +391,22 @@ to HTML. This package has full support for all Quill operations - including imag
 tables, and mentions. Conversion can be performed in vanilla Dart (i.e., server-side or CLI) or in Flutter.
 It is a complete Dart part of the popular and mature [quill-delta-to-html](https://www.npmjs.com/package/quill-delta-to-html)
 Typescript/Javascript package.
+
+## Testing
+
+To aid in testing applications using the editor an extension to the flutter `WidgetTester` is provided which includes methods to simplify interacting with the editor in test cases.
+
+Import the test utilities in your test file:
+
+```dart
+import 'package:flutter_quill/flutter_quill_test.dart';
+```
+
+and then enter text using `quillEnterText`:
+
+```dart
+await tester.quillEnterText(find.byType(QuillEditor), 'test\n');
+```
 
 ## Sponsors
 

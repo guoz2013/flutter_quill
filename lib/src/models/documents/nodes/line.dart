@@ -1,9 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
-import 'package:tuple/tuple.dart';
 
+import '../../../widgets/embeds.dart';
 import '../../quill_delta.dart';
+import '../../structs/offset_value.dart';
 import '../attribute.dart';
 import '../style.dart';
 import 'block.dart';
@@ -65,7 +66,11 @@ class Line extends Container<Leaf?> {
   }
 
   @override
-  String toPlainText() => '${super.toPlainText()}\n';
+  String toPlainText([
+    Iterable<EmbedBuilder>? embedBuilders,
+    EmbedBuilder? unknownEmbedBuilder,
+  ]) =>
+      '${super.toPlainText(embedBuilders, unknownEmbedBuilder)}\n';
 
   @override
   String toString() {
@@ -390,35 +395,35 @@ class Line extends Container<Leaf?> {
   }
 
   /// Returns each node segment's offset in selection
-  /// with its corresponding style as a list
-  List<Tuple2<int, Style>> collectAllIndividualStyles(int offset, int len,
+  /// with its corresponding style or embed as a list
+  List<OffsetValue> collectAllIndividualStylesAndEmbed(int offset, int len,
       {int beg = 0}) {
     final local = math.min(length - offset, len);
-    final result = <Tuple2<int, Style>>[];
+    final result = <OffsetValue>[];
 
     final data = queryChild(offset, true);
     var node = data.node as Leaf?;
     if (node != null) {
       var pos = 0;
-      if (node is Text) {
+      if (node is Text || node.value is Embeddable) {
         pos = node.length - data.offset;
-        result.add(Tuple2(beg, node.style));
+        result.add(OffsetValue(
+            beg, node is Text ? node.style : node.value as Embeddable));
       }
       while (!node!.isLast && pos < local) {
         node = node.next as Leaf;
-        if (node is Text) {
-          result.add(Tuple2(pos + beg, node.style));
+        if (node is Text || node.value is Embeddable) {
+          result.add(OffsetValue(
+              pos + beg, node is Text ? node.style : node.value as Embeddable));
           pos += node.length;
         }
       }
     }
 
-    // TODO: add line style and parent's block style
-
     final remaining = len - local;
     if (remaining > 0 && nextLine != null) {
-      final rest =
-          nextLine!.collectAllIndividualStyles(0, remaining, beg: local);
+      final rest = nextLine!
+          .collectAllIndividualStylesAndEmbed(0, remaining, beg: local);
       result.addAll(rest);
     }
 
@@ -458,6 +463,44 @@ class Line extends Container<Leaf?> {
     return result;
   }
 
+  /// Returns all styles for any character within the specified text range.
+  List<OffsetValue<Style>> collectAllStylesWithOffsets(
+    int offset,
+    int len, {
+    int beg = 0,
+  }) {
+    final local = math.min(length - offset, len);
+    final result = <OffsetValue<Style>>[];
+
+    final data = queryChild(offset, true);
+    var node = data.node as Leaf?;
+    if (node != null) {
+      var pos = 0;
+      pos = node.length - data.offset;
+      result.add(OffsetValue(node.documentOffset, node.style, node.length));
+      while (!node!.isLast && pos < local) {
+        node = node.next as Leaf;
+        result.add(OffsetValue(node.documentOffset, node.style, node.length));
+        pos += node.length;
+      }
+    }
+
+    result.add(OffsetValue(documentOffset, style, length));
+    if (parent is Block) {
+      final block = parent as Block;
+      result.add(OffsetValue(block.documentOffset, block.style, block.length));
+    }
+
+    final remaining = len - local;
+    if (remaining > 0 && nextLine != null) {
+      final rest =
+          nextLine!.collectAllStylesWithOffsets(0, remaining, beg: local);
+      result.addAll(rest);
+    }
+
+    return result;
+  }
+
   /// Returns plain text within the specified text range.
   String getPlainText(int offset, int len) {
     final plainText = StringBuffer();
@@ -478,7 +521,7 @@ class Line extends Container<Leaf?> {
 
   int _getPlainText(int offset, int len, StringBuffer plainText) {
     var _len = len;
-    final data = queryChild(offset, true);
+    final data = queryChild(offset, false);
     var node = data.node as Leaf?;
 
     while (_len > 0) {
