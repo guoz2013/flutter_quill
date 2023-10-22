@@ -191,6 +191,7 @@ class QuillEditor extends StatefulWidget {
     this.customLinkPrefixes = const <String>[],
     this.dialogTheme,
     this.contentInsertionConfiguration,
+    this.contextMenuBuilder,
     this.onCaretMoved,
     Key? key,
   }) : super(key: key);
@@ -439,6 +440,9 @@ class QuillEditor extends StatefulWidget {
   /// Configures the dialog theme.
   final QuillDialogTheme? dialogTheme;
 
+  // Allows for creating a custom context menu
+  final QuillEditorContextMenuBuilder? contextMenuBuilder;
+
   /// Configuration of handler for media content inserted via the system input
   /// method.
   ///
@@ -510,8 +514,9 @@ class QuillEditorState extends State<QuillEditor>
       readOnly: widget.readOnly,
       placeholder: widget.placeholder,
       onLaunchUrl: widget.onLaunchUrl,
-      contextMenuBuilder:
-          showSelectionToolbar ? RawEditor.defaultContextMenuBuilder : null,
+      contextMenuBuilder: showSelectionToolbar
+          ? (widget.contextMenuBuilder ?? RawEditor.defaultContextMenuBuilder)
+          : null,
       showSelectionHandles: isMobile(theme.platform),
       showCursor: widget.showCursor,
       cursorStyle: CursorStyle(

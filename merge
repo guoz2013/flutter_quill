@@ -1,0 +1,2 @@
+checkout 到原仓库， git pull
+checkout 本地仓库  git merge fq_original

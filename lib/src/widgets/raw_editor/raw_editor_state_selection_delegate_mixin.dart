@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import '../../models/documents/document.dart';
 import '../../models/documents/nodes/embeddable.dart';
 import '../../models/documents/nodes/leaf.dart';
+import '../../models/documents/style.dart';
 import '../../utils/delta.dart';
 import '../editor.dart';
 
@@ -48,15 +49,23 @@ mixin RawEditorStateSelectionDelegateMixin on EditorState
         final offset = pasteStyleAndEmbed[i].offset;
         final styleAndEmbed = pasteStyleAndEmbed[i].value;
 
+        final local = pos + offset;
         if (styleAndEmbed is Embeddable) {
-          widget.controller.replaceText(pos + offset, 0, styleAndEmbed, null);
+          widget.controller.replaceText(local, 0, styleAndEmbed, null);
         } else {
-          widget.controller.formatTextStyle(
-              pos + offset,
-              i == pasteStyleAndEmbed.length - 1
-                  ? pastePlainText.length - offset
-                  : pasteStyleAndEmbed[i + 1].offset,
-              styleAndEmbed);
+          final style = styleAndEmbed as Style;
+          if (style.isInline) {
+            widget.controller
+                .formatTextStyle(local, pasteStyleAndEmbed[i].length!, style);
+          } else if (style.isBlock) {
+            final node = widget.controller.document.queryChild(local).node;
+            if (node != null &&
+                pasteStyleAndEmbed[i].length == node.length - 1) {
+              style.values.forEach((attribute) {
+                widget.controller.document.format(local, 0, attribute);
+              });
+            }
+          }
         }
       }
     }
