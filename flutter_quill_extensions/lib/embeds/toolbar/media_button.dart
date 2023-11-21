@@ -1,15 +1,15 @@
-//import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/extensions.dart';
-import 'package:flutter_quill/flutter_quill.dart' hide Text;
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill/translations.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../embed_types.dart';
+import 'image_video_utils.dart';
 
 /// Widget which combines [ImageButton] and [VideButton] widgets. This widget
 /// has more customization and uses dialog similar to one which is used
@@ -17,6 +17,11 @@ import '../embed_types.dart';
 class MediaButton extends StatelessWidget {
   const MediaButton({
     required this.controller,
+    required this.onImagePickCallback,
+    required this.onVideoPickCallback,
+    required this.filePickImpl,
+    required this.webImagePickImpl,
+    required this.webVideoPickImpl,
     required this.icon,
     this.type = QuillMediaType.image,
     this.iconSize = kDefaultIconSize,
@@ -34,6 +39,7 @@ class MediaButton extends StatelessWidget {
     this.galleryButtonText,
     this.linkButtonText,
     this.autovalidateMode = AutovalidateMode.disabled,
+    this.dialogBarrierColor = Colors.black54,
     Key? key,
     this.validationMessage,
   })  : assert(type == QuillMediaType.image,
@@ -50,6 +56,7 @@ class MediaButton extends StatelessWidget {
   final String? tooltip;
   final MediaFilePicker mediaFilePicker;
   final MediaPickedCallback? onMediaPickedCallback;
+  final Color dialogBarrierColor;
 
   /// The margin between child widgets in the dialog.
   final double childrenSpacing;
@@ -74,6 +81,11 @@ class MediaButton extends StatelessWidget {
 
   final AutovalidateMode autovalidateMode;
   final String? validationMessage;
+  final OnImagePickCallback onImagePickCallback;
+  final FilePickImpl? filePickImpl;
+  final WebImagePickImpl? webImagePickImpl;
+  final OnVideoPickCallback onVideoPickCallback;
+  final WebVideoPickImpl? webVideoPickImpl;
 
   @override
   Widget build(BuildContext context) {
@@ -95,31 +107,56 @@ class MediaButton extends StatelessWidget {
   }
 
   Future<void> _onPressedHandler(BuildContext context) async {
-    if (onMediaPickedCallback != null) {
-      final mediaSource = await showDialog<MediaPickSetting>(
-        context: context,
-        builder: (_) => MediaSourceSelectorDialog(
-          dialogTheme: dialogTheme,
-          galleryButtonText: galleryButtonText,
-          linkButtonText: linkButtonText,
-        ),
-      );
-      if (mediaSource != null) {
-        if (mediaSource == MediaPickSetting.Gallery) {
-          await _pickImage();
-        } else {
-          _inputLink(context);
-        }
-      }
-    } else {
+    if (onMediaPickedCallback == null) {
       _inputLink(context);
+      return;
+    }
+    final mediaSource = await showDialog<MediaPickSetting>(
+      context: context,
+      builder: (_) => MediaSourceSelectorDialog(
+        dialogTheme: dialogTheme,
+        galleryButtonText: galleryButtonText,
+        linkButtonText: linkButtonText,
+      ),
+    );
+    if (mediaSource == null) {
+      return;
+    }
+    switch (mediaSource) {
+      case MediaPickSetting.Gallery:
+        await _pickImage();
+        break;
+      case MediaPickSetting.Link:
+        _inputLink(context);
+        break;
+      case MediaPickSetting.Camera:
+        await ImageVideoUtils.handleImageButtonTap(
+          context,
+          controller,
+          ImageSource.camera,
+          onImagePickCallback,
+          filePickImpl: filePickImpl,
+          webImagePickImpl: webImagePickImpl,
+        );
+        break;
+      case MediaPickSetting.Video:
+        await ImageVideoUtils.handleVideoButtonTap(
+          context,
+          controller,
+          ImageSource.camera,
+          onVideoPickCallback,
+          filePickImpl: filePickImpl,
+          webVideoPickImpl: webVideoPickImpl,
+        );
+        break;
     }
   }
 
   Future<void> _pickImage() async {
     if (!(kIsWeb || isMobile() || isDesktop())) {
       throw UnsupportedError(
-          'Unsupported target platform: ${defaultTargetPlatform.name}');
+        'Unsupported target platform: ${defaultTargetPlatform.name}',
+      );
     }
 
     final mediaFileUrl = await _pickMediaFileUrl();
@@ -128,7 +165,11 @@ class MediaButton extends StatelessWidget {
       final index = controller.selection.baseOffset;
       final length = controller.selection.extentOffset - index;
       controller.replaceText(
-          index, length, BlockEmbed.image(mediaFileUrl), null);
+        index,
+        length,
+        BlockEmbed.image(mediaFileUrl),
+        null,
+      );
     }
   }
 
@@ -220,9 +261,8 @@ class _MediaLinkDialogState extends State<MediaLinkDialog> {
   Widget build(BuildContext context) {
     final constraints = widget.dialogTheme?.linkDialogConstraints ??
         () {
-          final mediaQuery = MediaQuery.of(context);
-          final maxWidth =
-              kIsWeb ? mediaQuery.size.width / 4 : mediaQuery.size.width - 80;
+          final size = MediaQuery.sizeOf(context);
+          final maxWidth = kIsWeb ? size.width / 4 : size.width - 80;
           return BoxConstraints(maxWidth: maxWidth, maxHeight: 80);
         }();
 
@@ -278,16 +318,18 @@ class _MediaLinkDialogState extends State<MediaLinkDialog> {
         child: Padding(
           padding:
               widget.dialogTheme?.linkDialogPadding ?? const EdgeInsets.all(16),
-          child: isWrappable
-              ? Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  runSpacing: widget.dialogTheme?.runSpacing ?? 0.0,
-                  children: children,
-                )
-              : Row(
-                  children: children,
-                ),
+          child: Form(
+            child: isWrappable
+                ? Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    runSpacing: widget.dialogTheme?.runSpacing ?? 0.0,
+                    children: children,
+                  )
+                : Row(
+                    children: children,
+                  ),
+          ),
         ),
       ),
     );
@@ -305,7 +347,7 @@ class _MediaLinkDialogState extends State<MediaLinkDialog> {
 
   String? _validateLink(String? value) {
     if ((value?.isEmpty ?? false) ||
-        !AutoFormatMultipleLinksRule.linkRegExp.hasMatch(value!)) {
+        !AutoFormatMultipleLinksRule.oneLineRegExp.hasMatch(value!)) {
       return widget.validationMessage ?? 'That is not a valid URL';
     }
 
@@ -334,13 +376,13 @@ class MediaSourceSelectorDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final constraints = dialogTheme?.mediaSelectorDialogConstraints ??
         () {
-          final mediaQuery = MediaQuery.of(context);
+          final size = MediaQuery.sizeOf(context);
           double maxWidth, maxHeight;
           if (kIsWeb) {
-            maxWidth = mediaQuery.size.width / 7;
-            maxHeight = mediaQuery.size.height / 7;
+            maxWidth = size.width / 7;
+            maxHeight = size.height / 7;
           } else {
-            maxWidth = mediaQuery.size.width - 80;
+            maxWidth = size.width - 80;
             maxHeight = maxWidth / 2;
           }
           return BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight);

@@ -12,7 +12,8 @@ import 'node.dart';
 /// operation container looks for a child at specified index position and
 /// forwards operation to that child.
 ///
-/// Most of the operation handling logic is implemented by [Line] and [Text].
+/// Most of the operation handling logic is implemented by [Line]
+/// and [QuillText].
 abstract class Container<T extends Node?> extends Node {
   final LinkedList<Node> _children = LinkedList<Node>();
 
@@ -25,7 +26,7 @@ abstract class Container<T extends Node?> extends Node {
   int get childCount => _children.length;
 
   /// Returns the first child [Node].
-  Node get first => _children.first;
+  Node? get first => isEmpty ? null : _children.first;
 
   /// Returns the last child [Node].
   Node get last => _children.last;
@@ -124,15 +125,15 @@ abstract class Container<T extends Node?> extends Node {
 
     if (isNotEmpty) {
       final child = queryChild(index, false);
-      child.node!.insert(child.offset, data, style);
-      return;
+      if (child.isNotEmpty) {
+        child.node!.insert(child.offset, data, style);
+      }
+    } else {
+      assert(index == 0);
+      final node = defaultChild;
+      add(node);
+      node?.insert(index, data, style);
     }
-
-    // empty
-    assert(index == 0);
-    final node = defaultChild;
-    add(node);
-    node?.insert(index, data, style);
   }
 
   @override

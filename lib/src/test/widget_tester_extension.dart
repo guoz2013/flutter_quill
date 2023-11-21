@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../widgets/editor.dart';
-import '../widgets/raw_editor.dart';
+import '../widgets/editor/editor.dart';
+import '../widgets/raw_editor/raw_editor.dart';
 
 /// Extends
 extension QuillEnterText on WidgetTester {

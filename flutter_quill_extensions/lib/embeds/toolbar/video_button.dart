@@ -18,6 +18,7 @@ class VideoButton extends StatelessWidget {
     this.iconTheme,
     this.dialogTheme,
     this.tooltip,
+    this.linkRegExp,
     Key? key,
   }) : super(key: key);
 
@@ -39,7 +40,10 @@ class VideoButton extends StatelessWidget {
   final QuillIconTheme? iconTheme;
 
   final QuillDialogTheme? dialogTheme;
+
   final String? tooltip;
+
+  final RegExp? linkRegExp;
 
   @override
   Widget build(BuildContext context) {
@@ -70,11 +74,11 @@ class VideoButton extends StatelessWidget {
         if (source == MediaPickSetting.Gallery) {
           _pickVideo(context);
         } else {
-          _typeLink(context);
+          await _typeLink(context);
         }
       }
     } else {
-      _typeLink(context);
+      await _typeLink(context);
     }
   }
 
@@ -87,11 +91,12 @@ class VideoButton extends StatelessWidget {
         webVideoPickImpl: webVideoPickImpl,
       );
 
-  void _typeLink(BuildContext context) {
-    showDialog<String>(
+  Future<void> _typeLink(BuildContext context) async {
+    final value = await showDialog<String>(
       context: context,
       builder: (_) => LinkDialog(dialogTheme: dialogTheme),
-    ).then(_linkSubmitted);
+    );
+    _linkSubmitted(value);
   }
 
   void _linkSubmitted(String? value) {

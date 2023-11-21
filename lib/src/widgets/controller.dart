@@ -72,7 +72,7 @@ class QuillController extends ChangeNotifier {
   /// Store any styles attribute that got toggled by the tap of a button
   /// and that has not been applied yet.
   /// It gets reset after each format action within the [document].
-  Style toggledStyle = Style();
+  Style toggledStyle = const Style();
 
   bool ignoreFocusOnTextChange = false;
 
@@ -123,7 +123,9 @@ class QuillController extends ChangeNotifier {
       return;
     }
     if (isIncrease) {
-      formatSelection(Attribute.getIndentLevel(indent.value + 1));
+      if (indent.value < 5) {
+        formatSelection(Attribute.getIndentLevel(indent.value + 1));
+      }
       return;
     }
     formatSelection(Attribute.getIndentLevel(indent.value - 1));
@@ -150,7 +152,9 @@ class QuillController extends ChangeNotifier {
       } else if (indent.value == 1 && !isIncrease) {
         formatAttribute = Attribute.clone(Attribute.indentL1, null);
       } else if (isIncrease) {
-        formatAttribute = Attribute.getIndentLevel(indent.value + 1);
+        if (indent.value < 5) {
+          formatAttribute = Attribute.getIndentLevel(indent.value + 1);
+        }
       } else {
         formatAttribute = Attribute.getIndentLevel(indent.value - 1);
       }
@@ -223,8 +227,12 @@ class QuillController extends ChangeNotifier {
   }
 
   void replaceText(
-      int index, int len, Object? data, TextSelection? textSelection,
-      {bool ignoreFocus = false}) {
+    int index,
+    int len,
+    Object? data,
+    TextSelection? textSelection, {
+    bool ignoreFocus = false,
+  }) {
     assert(data is String || data is Embeddable);
 
     if (onReplaceText != null && !onReplaceText!(index, len, data)) {
@@ -396,10 +404,12 @@ class QuillController extends ChangeNotifier {
         extentOffset: math.min(selection.extentOffset, end));
     if (_keepStyleOnNewLine) {
       final style = getSelectionStyle();
-      final notInlineStyle = style.attributes.values.where((s) => !s.isInline);
-      toggledStyle = style.removeAll(notInlineStyle.toSet());
+      final ignoredStyles = style.attributes.values.where(
+        (s) => !s.isInline || s.key == Attribute.link.key,
+      );
+      toggledStyle = style.removeAll(ignoredStyles.toSet());
     } else {
-      toggledStyle = Style();
+      toggledStyle = const Style();
     }
     onSelectionChanged?.call(textSelection);
   }
@@ -420,5 +430,5 @@ class QuillController extends ChangeNotifier {
   }
 
   // Notify toolbar buttons directly with attributes
-  Map<String, Attribute> toolbarButtonToggler = {};
+  Map<String, Attribute> toolbarButtonToggler = const {};
 }

@@ -26,8 +26,6 @@ FlutterQuill is a rich text editor and a [Quill] component for [Flutter].
 
 This library is a WYSIWYG editor built for the modern Android, iOS, web and desktop platforms. Check out our [Youtube Playlist] or [Code Introduction] to take a detailed walkthrough of the code base. You can join our [Slack Group] for discussion.
 
-Demo App: [BULLET JOURNAL](https://bulletjournal.us/home/index.html)
-
 Pub: [FlutterQuill]
 
 ## Demo
@@ -44,6 +42,37 @@ Pub: [FlutterQuill]
 
 ---
 
+## Installation
+
+```yaml
+dependencies:
+  flutter_quill: ^<latest-version-here>
+```
+
+<p align="center">OR</p>
+
+```yaml
+dependencies:
+  flutter_quill:
+    git: https://github.com/singerdmx/flutter-quill.git
+```
+
+> **Important note**
+>
+> Currently, we're in the process of refactoring the library's configurations. We're actively working on this, and while we don't have a development version available at the moment, your feedback is essential to us.
+>
+> Using the latest version and reporting any issues you encounter on GitHub will greatly contribute to the improvement of the library. Your input and insights are valuable in shaping a stable and reliable version for all our users. Thank you for being part of the open-source community!
+>
+> if you want to use a more stable release, please use the followings:
+>
+> ```yaml
+> flutter_quill: ^7.4.16
+> flutter_quill_extensions: ^0.5.0
+> ```
+>
+> instead of the latest version
+>
+
 ## Usage
 
 See the `example` directory for a minimal example of how to use FlutterQuill.  You typically just need to instantiate a controller:
@@ -55,20 +84,24 @@ QuillController _controller = QuillController.basic();
 and then embed the toolbar and the editor, within your app.  For example:
 
 ```dart
-Column(
+QuillProvider(
+  configurations: QuillConfigurations(controller: _controller),
+  child: Column(
   children: [
-    QuillToolbar.basic(controller: _controller),
+    QuillToolbar.basic(),
     Expanded(
       child: Container(
         child: QuillEditor.basic(
-          controller: _controller,
           readOnly: false, // true for view only mode
         ),
       ),
     )
   ],
+),
 )
 ```
+
+And depending on your use case, you might want to dispose the `_controller` in dispose mehtod
 
 Check out [Sample Page] for advanced usage.
 
@@ -112,6 +145,39 @@ It is required to provide `filePickImpl` for toolbar image button, e.g. [Sample 
 
 The `QuillToolbar` class lets you customize which formatting options are available.
 [Sample Page] provides sample code for advanced usage and configuration.
+
+### Using Custom App Widget
+
+This project use some adaptive widgets like `AdaptiveTextSelectionToolbar` which require the following delegates:
+
+1. Default Material Localizations delegate
+2. Default Cupertino Localizations delegate
+3. Defualt Widgets Localizations delegate
+
+You don't need to include those since there are defined by default
+ but if you are using Custom app or you are overriding the `localizationsDelegates` in the App widget
+then please make sure it's including those:
+
+```dart
+localizationsDelegates: const [
+    DefaultCupertinoLocalizations.delegate,
+    DefaultMaterialLocalizations.delegate,
+    DefaultWidgetsLocalizations.delegate,
+],
+```
+
+And you might need more depending on your use case, for example if you are using custom localizations for your app, using custom app widget like [FluentApp](https://pub.dev/packages/fluent_ui)
+which will also need
+
+```dart
+localizationsDelegates: const [
+    // Required localizations delegates ...
+    FluentLocalizations.delegate,
+    AppLocalizations.delegate,
+],
+```
+
+in addition to the required delegates by this library
 
 ### Font Size
 
@@ -199,6 +265,24 @@ QuillToolbar.basic(
 );
 ```
 
+> [!WARNING]
+>
+> If you are using [flutter_quill_extensions](https://pub.dev/packages/flutter_quill_extensions) package to add support for images, videos and more
+> The extensions package require additional configurations:
+>
+> 1. We are using [`gal`](https://github.com/natsuk4ze/) plugin to save images.
+> For this to work, you need to add the appropriate permissions
+> to your `Info.plist` and `AndroidManifest.xml` files.
+> See <https://github.com/natsuk4ze/gal#-get-started> to add the needed lines.
+>
+> 2. We also use [`image_picker`](https://pub.dev/packages/image_picker) plugin for picking images so please make sure follow the instructions
+>
+> 3. For loading the image from the internet we need internet permission
+>    1. For Android, you need to add some permissions in `AndroidManifest.xml`, Please follow this [link](https://developer.android.com/training/basics/network-ops/connecting) for more info, the internet permission included by default only for debugging so you need to follow this link to add it in the release version too. you should allow loading images and videos only for the `https` protocol but if you want http too then you need to configure your android application to accept `http` in the release mode, follow this [link](https://stackoverflow.com/questions/45940861/android-8-cleartext-http-traffic-not-permitted) for more info.
+>    2. for macOS you also need to include a key in your `Info.plist`, please follow this [link](https://stackoverflow.com/a/61201081/18519412) to add the required configurations
+>
+> The extensions package also use [image_picker](https://pub.dev/packages/image_picker) which also require some configurations, follow this [link](https://pub.dev/packages/image_picker#installation). It's needed for Android, iOS, macOS, we must inform you that you can't pick photo using camera in desktop so make sure to handle that if you plan on add support for desktop, this might changed in the future and for more info follow this [link](https://pub.dev/packages/image_picker#windows-macos-and-linux)
+
 ### Custom Size Image for Mobile
 
 Define `mobileWidth`, `mobileHeight`, `mobileMargin`, `mobileAlignment` as follows:
@@ -210,6 +294,21 @@ Define `mobileWidth`, `mobileHeight`, `mobileMargin`, `mobileAlignment` as follo
       },
       "attributes":{
          "style":"mobileWidth: 50; mobileHeight: 50; mobileMargin: 10; mobileAlignment: topLeft"
+      }
+}
+```
+
+### Custom Size Image for other platforms (excluding web)
+
+Define `width`, `height`, `margin`, `alignment` as follows:
+
+```dart
+{
+      "insert": {
+         "image": "https://user-images.githubusercontent.com/122956/72955931-ccc07900-3d52-11ea-89b1-d468a6e2aa2b.png"
+      },
+      "attributes":{
+         "style":"width: 50; height: 50; margin: 10; alignment: topLeft"
       }
 }
 ```
@@ -256,6 +355,7 @@ class NotesEmbedBuilder extends EmbedBuilder {
     Embed node,
     bool readOnly,
     bool inline,
+    TextStyle textStyle,
   ) {
     final notes = NotesBlockEmbed(node.value.data).document;
 
@@ -347,11 +447,12 @@ QuillToolbar(locale: Locale('fr'), ...)
 QuillEditor(locale: Locale('fr'), ...)
 ```
 
-Currently, translations are available for these 28 locales:
+Currently, translations are available for these 31 locales:
 
 * `Locale('en')`
 * `Locale('ar')`
 * `Locale('bn')`
+* `Locale('bs')`
 * `Locale('cs')`
 * `Locale('de')`
 * `Locale('da')`
@@ -362,6 +463,7 @@ Currently, translations are available for these 28 locales:
 * `Locale('ko')`
 * `Locale('ru')`
 * `Locale('es')`
+* `Locale('tk')`
 * `Locale('tr')`
 * `Locale('uk')`
 * `Locale('ur')`
@@ -376,6 +478,7 @@ Currently, translations are available for these 28 locales:
 * `Locale('fa')`
 * `Locale('hi')`
 * `Locale('sr')`
+* `Locale('sw')`
 * `Locale('ja')`
 
 #### Contributing to translations
@@ -407,6 +510,22 @@ and then enter text using `quillEnterText`:
 ```dart
 await tester.quillEnterText(find.byType(QuillEditor), 'test\n');
 ```
+
+## License
+
+[MIT](LICENSE)
+
+## Contributors
+
+Special thanks for everyone that have contributed to this project...
+
+<a href="https://github.com/singerdmx/flutter-quill/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=singerdmx/flutter-quill" />
+</a>
+
+<br>
+
+Made with [contrib.rocks](https://contrib.rocks).
 
 ## Sponsors
 

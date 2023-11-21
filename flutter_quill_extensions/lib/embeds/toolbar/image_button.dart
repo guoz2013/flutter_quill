@@ -18,6 +18,7 @@ class ImageButton extends StatelessWidget {
     this.iconTheme,
     this.dialogTheme,
     this.tooltip,
+    this.linkRegExp,
     Key? key,
   }) : super(key: key);
 
@@ -40,6 +41,7 @@ class ImageButton extends StatelessWidget {
 
   final QuillDialogTheme? dialogTheme;
   final String? tooltip;
+  final RegExp? linkRegExp;
 
   @override
   Widget build(BuildContext context) {
@@ -62,20 +64,47 @@ class ImageButton extends StatelessWidget {
   }
 
   Future<void> _onPressedHandler(BuildContext context) async {
-    if (onImagePickCallback != null) {
-      final selector =
-          mediaPickSettingSelector ?? ImageVideoUtils.selectMediaPickSetting;
-      final source = await selector(context);
-      if (source != null) {
-        if (source == MediaPickSetting.Gallery) {
-          _pickImage(context);
-        } else {
-          _typeLink(context);
-        }
-      }
-    } else {
-      _typeLink(context);
+    final onImagePickCallbackRef = onImagePickCallback;
+    if (onImagePickCallbackRef == null) {
+      await _typeLink(context);
+      return;
     }
+    final selector =
+        mediaPickSettingSelector ?? ImageVideoUtils.selectMediaPickSetting;
+    final source = await selector(context);
+    if (source == null) {
+      return;
+    }
+    switch (source) {
+      case MediaPickSetting.Gallery:
+        _pickImage(context);
+        break;
+      case MediaPickSetting.Link:
+        await _typeLink(context);
+        break;
+      case MediaPickSetting.Camera:
+        await ImageVideoUtils.handleImageButtonTap(
+          context,
+          controller,
+          ImageSource.camera,
+          onImagePickCallbackRef,
+          filePickImpl: filePickImpl,
+          webImagePickImpl: webImagePickImpl,
+        );
+        break;
+      case MediaPickSetting.Video:
+        throw ArgumentError(
+          'Sorry but this is the Image button and not the video one',
+        );
+    }
+
+    // This will not work for the pick image using camera (bug fix)
+    // if (source != null) {
+    //   if (source == MediaPickSetting.Gallery) {
+
+    //   } else {
+    //     _typeLink(context);
+    //   }
   }
 
   void _pickImage(BuildContext context) => ImageVideoUtils.handleImageButtonTap(
@@ -87,11 +116,15 @@ class ImageButton extends StatelessWidget {
         webImagePickImpl: webImagePickImpl,
       );
 
-  void _typeLink(BuildContext context) {
-    showDialog<String>(
+  Future<void> _typeLink(BuildContext context) async {
+    final value = await showDialog<String>(
       context: context,
-      builder: (_) => LinkDialog(dialogTheme: dialogTheme),
-    ).then(_linkSubmitted);
+      builder: (_) => LinkDialog(
+        dialogTheme: dialogTheme,
+        linkRegExp: linkRegExp,
+      ),
+    );
+    _linkSubmitted(value);
   }
 
   void _linkSubmitted(String? value) {

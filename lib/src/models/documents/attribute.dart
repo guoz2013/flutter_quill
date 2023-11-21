@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:equatable/equatable.dart';
 import 'package:quiver/core.dart';
 
 enum AttributeScope {
@@ -9,8 +10,12 @@ enum AttributeScope {
   IGNORE, // attributes that can be ignored
 }
 
-class Attribute<T> {
-  const Attribute(this.key, this.scope, this.value);
+class Attribute<T> extends Equatable {
+  const Attribute(
+    this.key,
+    this.scope,
+    this.value,
+  );
 
   /// Unique key of this attribute.
   final String key;
@@ -102,6 +107,8 @@ class Attribute<T> {
 
   static final ScriptAttribute script = ScriptAttribute(null);
 
+  // TODO: You might want to mark those as key (like mobileWidthKey)
+  // because it was not very clear to a developer that is new to this project
   static const String mobileWidth = 'mobileWidth';
 
   static const String mobileHeight = 'mobileHeight';
@@ -109,6 +116,12 @@ class Attribute<T> {
   static const String mobileMargin = 'mobileMargin';
 
   static const String mobileAlignment = 'mobileAlignment';
+
+  /// For other platforms, for mobile use [mobileAlignment]
+  static const String alignment = 'alignment';
+
+  /// For other platforms, for mobile use [mobileMargin]
+  static const String margin = 'margin';
 
   static const ImageAttribute image = ImageAttribute(null);
 
@@ -245,6 +258,7 @@ class Attribute<T> {
     return Attribute(origin.key, origin.scope, value);
   }
 
+  // This might not needed anymore because of equatable
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -255,6 +269,7 @@ class Attribute<T> {
         value == typedOther.value;
   }
 
+  // This might not needed anymore because of equatable
   @override
   int get hashCode => hash3(key, scope, value);
 
@@ -262,6 +277,9 @@ class Attribute<T> {
   String toString() {
     return 'Attribute{key: $key, scope: $scope, value: $value}';
   }
+
+  @override
+  List<Object?> get props => [key, scope, value];
 }
 
 class BoldAttribute extends Attribute<bool> {

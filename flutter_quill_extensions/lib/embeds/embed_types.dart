@@ -1,7 +1,8 @@
-import 'dart:io';
+import 'dart:io' show File;
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'
+    show ImageErrorWidgetBuilder, BuildContext, ImageProvider;
 
 typedef OnImagePickCallback = Future<String?> Function(File file);
 typedef OnVideoPickCallback = Future<String?> Function(File file);
@@ -44,3 +45,18 @@ class QuillFile {
   final String path;
   final Uint8List bytes;
 }
+
+typedef ImageEmbedBuilderWillRemoveCallback = Future<bool> Function(
+  File imageFile,
+);
+
+typedef ImageEmbedBuilderOnRemovedCallback = Future<void> Function(
+  File imageFile,
+);
+
+typedef ImageEmbedBuilderProviderBuilder = ImageProvider Function(
+  String imageUrl,
+  // {required bool isLocalImage}
+);
+
+typedef ImageEmbedBuilderErrorWidgetBuilder = ImageErrorWidgetBuilder;

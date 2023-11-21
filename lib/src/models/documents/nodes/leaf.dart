@@ -16,12 +16,12 @@ abstract class Leaf extends Node {
     }
     final text = data as String;
     assert(text.isNotEmpty);
-    return Text(text);
+    return QuillText(text);
   }
 
   Leaf.val(Object val) : _value = val;
 
-  /// Contents of this node, either a String if this is a [Text] or an
+  /// Contents of this node, either a String if this is a [QuillText] or an
   /// [Embed] if this is an [BlockEmbed].
   Object get value => _value;
   Object _value;
@@ -74,9 +74,8 @@ abstract class Leaf extends Node {
     final remain = len - local;
     final node = _isolate(index, local);
 
-    if (remain > 0) {
-      assert(node.next != null);
-      node.next!.retain(0, remain, style);
+    if (remain > 0 && node.next != null) {
+      node.next?.retain(0, remain, style);
     }
     node.format(style);
   }
@@ -92,9 +91,8 @@ abstract class Leaf extends Node {
     target.unlink();
 
     final remain = len - local;
-    if (remain > 0) {
-      assert(next != null);
-      next!.delete(0, remain);
+    if (remain > 0 && next != null) {
+      next.delete(0, remain);
     }
 
     if (prev != null) {
@@ -121,11 +119,11 @@ abstract class Leaf extends Node {
     }
 
     // This is a text node and it can only be merged with other text nodes.
-    var node = this as Text;
+    var node = this as QuillText;
 
     // Merging it with previous node if style is the same.
     final prev = node.previous;
-    if (!node.isFirst && prev is Text && prev.style == node.style) {
+    if (!node.isFirst && prev is QuillText && prev.style == node.style) {
       prev._value = prev.value + node.value;
       node.unlink();
       node = prev;
@@ -133,7 +131,7 @@ abstract class Leaf extends Node {
 
     // Merging it with next node if style is the same.
     final next = node.next;
-    if (!node.isLast && next is Text && next.style == node.style) {
+    if (!node.isLast && next is QuillText && next.style == node.style) {
       node._value = node.value + next.value;
       next.unlink();
     }
@@ -159,7 +157,7 @@ abstract class Leaf extends Node {
       return isLast ? null : next as Leaf?;
     }
 
-    assert(this is Text);
+    assert(this is QuillText);
     final text = _value as String;
     _value = text.substring(0, index);
     final split = Leaf(text.substring(index))..applyStyle(style);
@@ -213,13 +211,18 @@ abstract class Leaf extends Node {
 ///
 ///   * [Embed], a leaf node representing an embeddable object.
 ///   * [Line], a node representing a line of text.
-class Text extends Leaf {
-  Text([String text = ''])
+///
+/// Update:
+/// The reason we are renamed quill Text to [QuillText] so it doesn't
+/// conflict with the one from the widgets, material or cupertino library
+///
+class QuillText extends Leaf {
+  QuillText([String text = ''])
       : assert(!text.contains('\n')),
         super.val(text);
 
   @override
-  Node newInstance() => Text(value);
+  Node newInstance() => QuillText(value);
 
   @override
   String get value => _value as String;
@@ -234,7 +237,7 @@ class Text extends Leaf {
 
 /// An embed node inside of a line in a Quill document.
 ///
-/// Embed node is a leaf node similar to [Text]. It represents an arbitrary
+/// Embed node is a leaf node similar to [QuillText]. It represents an arbitrary
 /// piece of non-textual content embedded into a document, such as, image,
 /// horizontal rule, video, or any other object with defined structure,
 /// like a tweet, for instance.
